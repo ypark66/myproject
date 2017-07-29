@@ -37,18 +37,23 @@ Copyright (c) 2017 Yeongyoon Park. All rights reserved.
 
 """
 
-#fillout area
-username='ypark66'
-password='shibalPW12!'
-course_num = ['446', '391','411']
-course_section_num = ['46792','47765','30109']                   #enter the CRN for section and discussion numbers
-course_discussion_num = [[],[47766],[]]
+
+"""
+    FILL OUT AREA
+    The number of elements in course_num, course_section_num, course_discussion_num, and major must match
+"""
+username=''
+password=''
+course_num = []                         
+course_section_num = []                   #enter the CRN for section and discussion numbers
+course_discussion_num = []
+major = []
 self_service = 'https://apps.uillinois.edu/selfservice/'      #URL to self service
 semester = 'Fall 2017 - Urbana-Champaign'                     #check the right word from options in html
-major = ['Computer Science', 'Electrical and Computer Engr', 'Computer Science']
-from_this_email = 'ypark66@fasoo.com'
-email_address = 'dusrbs@gmail.com'
+from_this_email = ''
+user_email_address = ''
 isFirst = True
+
 """
      Navigate the self service page and log in to UIUC page
      @param username
@@ -58,10 +63,14 @@ isFirst = True
 """
 def log_in(driver, username, password, self_service):
     url = self_service
+
+    #open browser
     if driver == 0:
-        driver = webdriver.Firefox(executable_path=r'C:\Users\fasoo-03\gecko\geckodriver.exe')
-        #driver = webdriver.Chrome(executable_path=r'C:\Users\fasoo-03\gecko\chromedriver.exe')
+        driver = webdriver.Firefox(executable_path=r'C:\Users\Yeonhoo Park\Documents\GitHub\myproject\geckodriver.exe')
+        #driver = webdriver.Chrome(executable_path=r'C:\Users\Yeonhoo Park\Documents\GitHub\myproject\chromedriver.exe')
         isFirst = True
+
+    #open new tab
     else:
         ActionChains(driver).key_down(Keys.CONTROL).send_keys('t').key_up(Keys.CONTROL).perform()
         driver.switch_to.window(driver.window_handles[-1])
@@ -70,7 +79,9 @@ def log_in(driver, username, password, self_service):
         isFirst = False
     driver.get(url)
     driver.find_element_by_link_text('University of Illinois at Urbana-Champaign (URBANA)').click()
-    if (isFirst):
+
+    #log in only one time per browser
+    if isFirst:
         wait = WebDriverWait(driver, 100)
         wait.until(EC.presence_of_element_located((By.NAME,"inputEnterpriseId")))
         user_field = driver.find_element_by_name("inputEnterpriseId")
@@ -94,13 +105,14 @@ def log_in(driver, username, password, self_service):
 def navigate(driver, username, password, major, semester=None):
     driver = log_in(driver, username, password, self_service)
     print('LOG IN SUCCESSFUL')
+
     wait = WebDriverWait(driver, 100)
-    wait.until(EC.presence_of_element_located((By.PARTIAL_LINK_TEXT,"Registration")))
+    wait.until(EC.presence_of_element_located((By.PARTIAL_LINK_TEXT,"Registration")))  #wait until given element is detected
     driver.find_element_by_partial_link_text("Registration").click()
-    if logged_out_check(driver):
+    if logged_out_check(driver):        #check if account was logged out during transition
         print('Logged out during Entering Classic Registration & Records')
         return None,None
-    print('Entering Classic Registration & Records Successful')
+    print('Entering Classic Registration & Records page Successful')
 
     wait = WebDriverWait(driver, 100)
     wait.until(EC.presence_of_element_located((By.PARTIAL_LINK_TEXT,"Classic")))
@@ -108,7 +120,7 @@ def navigate(driver, username, password, major, semester=None):
     if logged_out_check(driver):
         print('Logged out during Entering Classic Registration')
         return None,None
-    print('Entering Classic Registration Successful')
+    print('Entering Classic Registration page Successful')
 
     wait = WebDriverWait(driver, 100)
     wait.until(EC.presence_of_element_located((By.PARTIAL_LINK_TEXT,"Look-up or Select")))
@@ -116,7 +128,7 @@ def navigate(driver, username, password, major, semester=None):
     if logged_out_check(driver):
         print('Logged out during Entering Look-up or Select Classes')
         return None,None
-    print('Entering Look-up or Select Classes Successful')
+    print('Entering Look-up or Select Classes page Successful')
 
     wait = WebDriverWait(driver, 100)
     wait.until(EC.presence_of_element_located((By.PARTIAL_LINK_TEXT,"I Agree to the Above")))
@@ -129,7 +141,7 @@ def navigate(driver, username, password, major, semester=None):
     #semester
     wait = WebDriverWait(driver, 100)
     wait.until(EC.presence_of_element_located((By.ID,'term_input_id')))
-    options = Select(driver.find_element_by_id('term_input_id'))
+    options = Select(driver.find_element_by_id('term_input_id'))        #choosing major from options
     options.select_by_visible_text(semester)
     path = '//input[@type="submit" and @value="Submit"]'
     driver.find_element_by_xpath(path).click()
@@ -178,40 +190,45 @@ def find_course_position(course_num, soup, main_page_idx):
     @return false if courses are full, none if CRN is invalid
 """
 def check_full_or_not(soup, course_section_num, course_discussion_num, index):
+
+    #check if the lecture section is full
     course_section_num_idx = find_section_num_idx(soup, course_section_num)
     if course_section_num_idx == None:
         print('{0} is an invalid section number'.format(course_section_num))
         return None
     course_full_or_not_indicator = soup('a', string=re.compile('\d+'))[course_section_num_idx].parent.find_previous('td').string
 
+    #if discussion is required, check if the discussion section is full
     if len(course_discussion_num)!=0:
-        flag = True
         idx = 0
-        delIdx = []
-        Discussion_is_available = False
+        delIdx = []   #index of the invalid section numbers to be deleted from the list
+        discussion_is_available = False
 
         for discussion in course_discussion_num:
             discussion_section_num_idx = find_section_num_idx(soup, discussion)
             if discussion_section_num_idx != None:
                 if soup('a', string=re.compile('\d+'))[discussion_section_num_idx].parent.find_previous('td').string != 'C':
-                    Discussion_is_available = True
+                    discussion_is_available = True
                     index.append(idx)
-                    flag = False
             else:
                 print('{0} is an invalid discussion CRN. It will be deleted from the discussion list'.format(discussion))
                 delIdx.append(idx)
             idx += 1
 
-        if len(delIdx) != 0 and flag:
-            delIdx.reverse()
+        if len(delIdx) != 0 and (discussion_is_available == False):
+            #delIdx.reverse()                #This way, delete the invalid discussion section number and proceed
+            #for index in delIdx:
+            #    del course_discussion_num[index]
+            print("Invalid discussion section number")          #terminate the program when invalid number is detected
             for index in delIdx:
-                del course_discussion_num[index]
-        if len(course_discussion_num)==0:
-            print("All of the discussion CRNs are invalid")
-            return None         #all discussion section numbers are invalid
+                print("{0} is an invalid discussion section number.".format(course_discussion_num[index])
+            return None
+        #if len(course_discussion_num)==0:
+        #    print("All of the discussion CRNs are invalid")
+        #    return None         #all discussion section numbers are invalid. delete the course
     else:
         return course_full_or_not_indicator != 'C'
-    return course_full_or_not_indicator != 'C' and Discussion_is_available
+    return course_full_or_not_indicator != 'C' and discussion_is_available
 
 
 """
@@ -225,7 +242,9 @@ def find_section_num_idx(soup, crn):
         section_num_idx += 1
     return None
 
-
+"""
+    register the course. 
+"""
 def register(driver, index, course_section_num, course_discussion_num):
     print(' start register!')
     driver.find_element_by_xpath('//input[@value="Register"]').click()
@@ -240,16 +259,18 @@ def register(driver, index, course_section_num, course_discussion_num):
     print(' success !')
     print(' please check any warnings ')
 
-
+"""
+    send email when registration was done
+"""
 def send_notification(major, course_number):
     msg = MIMEText('Registration for {0} {1} is ready'.format(major,course_number))
 
     msg['Subject'] = 'Course Registration Success'
     msg['From'] = from_this_email
-    msg['To'] = email_address
+    msg['To'] = user_email_address
 
     s = smtplib.SMTP('localhost')
-    s.sendmail(from_this_email, [email_address], msg.as_string())
+    s.sendmail(from_this_email, [user_email_address], msg.as_string())
     s.quit()
 
 
@@ -297,7 +318,7 @@ def main():
                 driver = 0
                 time.sleep(10)
                 break
-            soup[i] = bs(curr_page, 'html.parser')
+            soup[i] = bs(curr_page, 'html.parser')      #parse the course selection page
             main_page_idx = find_course_position(course_num[i], soup[i], main_page_idx)
             main_page_idx += main_page_idx_offset
             path = "//table[@summary='This layout table is used to present the course found']/tbody/tr[%s]/td[%s]/form/input[@type='submit']" % (main_page_idx, main_page_idx_submit_button_idx)
@@ -334,10 +355,12 @@ def main():
                 index = []
                 check = check_full_or_not(soup[i], course_section_num[i], course_discussion_num[i], index)
                 if check == None:
-                    print("Invalid. Change the CRN. Deleting the course from list")    #what if all the discussions were deleted for the class that requires discussion?
-                    delete_info(i)
-                    driver.close()
-                    break
+                    #print("Invalid. Change the CRN. Deleting the course from list")    #what if all the discussions were deleted for the class that requires discussion?
+                    #delete_info(i)
+                    #driver.close()
+                    #break
+                    print('Change the CRN for {0} {1}'.format(major[i],course_num[i]))
+                    return
 
                 # Course ready, start register
                 elif check == True:
